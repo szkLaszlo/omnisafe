@@ -345,7 +345,7 @@ class PolicyGradient(BaseAlgo):
         )
 
         update_counts = 0
-        final_kl = torch.ones_like(old_distribution.loc)
+        final_kl = 0.0
 
         for i in track(range(self._cfgs.algo_cfgs.update_iters), description='Updating...'):
             for (
@@ -555,15 +555,15 @@ class PolicyGradient(BaseAlgo):
         """
         distribution = self._actor_critic.actor(obs)
         logp_ = self._actor_critic.actor.log_prob(act)
-        std = self._actor_critic.actor.std
         ratio = torch.exp(logp_ - logp)
         loss = -(ratio * adv).mean()
         entropy = distribution.entropy().mean().item()
+        if self._cfgs.model_cfgs.actor_type == 'gaussian_learning':
+            self._logger.store({'Train/PolicyStd': self._actor_critic.actor.std})
         self._logger.store(
             {
                 'Train/Entropy': entropy,
                 'Train/PolicyRatio': ratio,
-                'Train/PolicyStd': std,
                 'Loss/Loss_pi': loss.mean().item(),
             },
         )

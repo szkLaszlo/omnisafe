@@ -24,7 +24,7 @@ import torch
 
 from omnisafe.algorithms import ALGORITHM2TYPE, ALGORITHMS, registry
 from omnisafe.algorithms.base_algo import BaseAlgo
-from omnisafe.envs import support_envs
+from omnisafe.envs import ENVIRONMNET2TYPE, support_envs
 from omnisafe.evaluator import Evaluator
 from omnisafe.utils import distributed
 from omnisafe.utils.config import Config, check_all_configs, get_default_kwargs_yaml
@@ -88,6 +88,7 @@ class AlgoWrapper:
             self.algo in ALGORITHMS['all']
         ), f"{self.algo} doesn't exist. Please choose from {ALGORITHMS['all']}."
         self.algo_type = ALGORITHM2TYPE.get(self.algo, '')
+        self.env_type = ENVIRONMNET2TYPE.get(self.env_id, '')
         if self.train_terminal_cfgs is not None:
             if self.algo_type in ['model-based', 'offline']:
                 assert (
@@ -146,19 +147,22 @@ class AlgoWrapper:
 
     def _init_algo(self) -> None:
         """Initialize the algorithm."""
-        check_all_configs(self.cfgs, self.algo_type)
-        device = self.cfgs.train_cfgs.device
-        if device == 'cpu':
-            torch.set_num_threads(self.cfgs.train_cfgs.torch_threads)
-        else:
-            torch.set_num_threads(1)
-            torch.cuda.set_device(self.cfgs.train_cfgs.device)
+        check_all_configs(self.cfgs, self.algo_type, self.env_type)
         if distributed.fork(
             self.cfgs.train_cfgs.parallel,
             device=self.cfgs.train_cfgs.device,
         ):
             # re-launches the current script with workers linked by MPI
             sys.exit()
+        if self.cfgs.train_cfgs.device == 'cpu':
+            torch.set_num_threads(self.cfgs.train_cfgs.torch_threads)
+        else:
+            if self.cfgs.train_cfgs.parallel > 1 and os.getenv('MASTER_ADDR') is not None:
+                ddp_local_rank = int(os.environ['LOCAL_RANK'])
+                self.cfgs.train_cfgs.device = f'cuda:{ddp_local_rank}'
+            torch.set_num_threads(1)
+            torch.cuda.set_device(self.cfgs.train_cfgs.device)
+        os.environ['OMNISAFE_DEVICE'] = self.cfgs.train_cfgs.device
         self.agent: BaseAlgo = registry.get(self.algo)(
             env_id=self.env_id,
             cfgs=self.cfgs,
