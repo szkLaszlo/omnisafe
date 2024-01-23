@@ -26,6 +26,7 @@ from gymnasium import spaces
 from omnisafe.envs.core import CMDP, env_register
 from omnisafe.typing import DEVICE_CPU, Discrete
 
+from omnisafe.envs.highway_cl import CumulantIntersectionEnv
 
 @env_register
 class DiscreteEnv(CMDP):
@@ -92,7 +93,42 @@ class DiscreteEnv(CMDP):
         else:
             self.need_time_limit_wrapper = True
             self.need_auto_reset_wrapper = True
-            self._env = gymnasium.make(id=env_id, autoreset=True, render_mode=kwargs.get('render_mode'))  # type: ignore
+            env_config = {
+                "observation": {
+                    "type": "Kinematics",
+                    "vehicles_count": 15,
+                    "features": ['presence', 'x', 'y', 'vx', 'vy', 'cos_h', 'sin_h'],
+                    "features_range": {
+                        "x": [-100, 100],
+                        "y": [-100, 100],
+                        "vx": [-20, 20],
+                        "vy": [-20, 20],
+
+                    },
+                    "see_behind": True,
+                    "absolute": True,
+                    "flatten": True,
+                    # "normalize": True,
+                    "observe_intentions": False,
+                    "order": "shuffled",
+                },
+                "action": {
+                    "type": "DiscreteMetaAction",
+                    "longitudinal": True,
+                    "lateral": False,
+                    "acceleration_range": [-6, 3],
+                    "target_speeds": [0, 4.5, 9]
+                }, "controlled_vehicles": 1, "policy_frequency": 1,
+                "initial_vehicle_count": 10,
+                "simulation_frequency": 15,
+                "spawn_probability": 0.6,
+                "duration": 13, 'collision_reward': 1, 'high_speed_reward': 1, 'arrived_reward': 1,
+                'reward_speed_range': [7.0, 9.0], 'normalize_reward': False,
+                "offscreen_rendering": True, "video": False,
+                "default_w": [-1000, 1, 1],
+                "go_straight": False,
+            }
+            self._env = CumulantIntersectionEnv(env_config)
             self._action_space = self._env.action_space  # type: ignore
             self._observation_space = self._env.observation_space  # type: ignore
         self._metadata = self._env.metadata
@@ -151,8 +187,8 @@ class DiscreteEnv(CMDP):
             )
             if isinstance(self._observation_space, spaces.Discrete):
                 info['final_observation'] = info['final_observation'].unsqueeze(-1)
-
-        return obs, reward, torch.zeros_like(reward), terminated, truncated, info
+        cost = torch.zeros_like(reward)+info.get('cost', 0)
+        return obs, reward, cost, terminated, truncated, info
 
     def reset(
         self,
