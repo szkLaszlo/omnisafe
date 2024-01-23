@@ -91,7 +91,7 @@ class DiscreteEnv(CMDP):
             self._action_space = self._env.single_action_space
             self._observation_space = self._env.single_observation_space  # type: ignore
         else:
-            self.need_time_limit_wrapper = True
+            self.need_time_limit_wrapper = False
             self.need_auto_reset_wrapper = True
             env_config = {
                 "observation": {

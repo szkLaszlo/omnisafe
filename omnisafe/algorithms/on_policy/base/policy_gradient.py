@@ -194,6 +194,7 @@ class PolicyGradient(BaseAlgo):
         self._logger.register_key('Metrics/success', window_length=50)
         self._logger.register_key('Metrics/slow', window_length=50)
         self._logger.register_key('Metrics/collision', window_length=50)
+        self._logger.register_key('Metrics/episodes')
 
         self._logger.register_key('Train/Epoch')
         self._logger.register_key('Train/Entropy')
@@ -205,6 +206,7 @@ class PolicyGradient(BaseAlgo):
             self._logger.register_key('Train/PolicyStd')
 
         self._logger.register_key('TotalEnvSteps')
+        self._logger.register_key('TotalEpisodes')
 
         # log information about actor
         self._logger.register_key('Loss/Loss_pi', delta=True)
@@ -267,6 +269,7 @@ class PolicyGradient(BaseAlgo):
             self._logger.store(
                 {
                     'TotalEnvSteps': (epoch + 1) * self._cfgs.algo_cfgs.steps_per_epoch,
+                    'Metrics/episodes': self._logger._data["TotalEpisodes"][-1],
                     'Time/FPS': self._cfgs.algo_cfgs.steps_per_epoch / (time.time() - epoch_time),
                     'Time/Total': (time.time() - start_time),
                     'Time/Epoch': (time.time() - epoch_time),

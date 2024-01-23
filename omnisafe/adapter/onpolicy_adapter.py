@@ -43,6 +43,7 @@ class OnPolicyAdapter(OnlineAdapter):
     _ep_ret: torch.Tensor
     _ep_cost: torch.Tensor
     _ep_len: torch.Tensor
+    _ep_all: torch.Tensor
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
@@ -54,6 +55,7 @@ class OnPolicyAdapter(OnlineAdapter):
         """Initialize an instance of :class:`OnPolicyAdapter`."""
         super().__init__(env_id, num_envs, seed, cfgs)
         self._reset_log()
+        self._ep_all = torch.zeros(self._env.num_envs)
 
     def rollout(  # pylint: disable=too-many-locals
         self,
@@ -91,7 +93,8 @@ class OnPolicyAdapter(OnlineAdapter):
                 cause = final_info["cause"]
                 cause = "success" if cause is None else cause
                 for c_i in ["slow", "collision", "success"]:
-                    logger.store({f"Metrics/{c_i}": c_i in cause})
+                    logger.store({f"Metrics/{c_i}": float(c_i in cause)})
+                self._ep_all += 1
             if self._cfgs.algo_cfgs.use_cost:
                 logger.store({'Value/cost': value_c})
             logger.store({'Value/reward': value_r})
@@ -168,6 +171,7 @@ class OnPolicyAdapter(OnlineAdapter):
                 'Metrics/EpRet': self._ep_ret[idx],
                 'Metrics/EpCost': self._ep_cost[idx],
                 'Metrics/EpLen': self._ep_len[idx],
+                'TotalEpisodes': self._ep_all[idx]
             },
         )
 
