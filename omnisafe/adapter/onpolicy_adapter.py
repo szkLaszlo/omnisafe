@@ -86,7 +86,12 @@ class OnPolicyAdapter(OnlineAdapter):
             next_obs, reward, cost, terminated, truncated, info = self.step(act)
 
             self._log_value(reward=reward, cost=cost, info=info)
-
+            final_info = info.get("final_info", None)
+            if final_info is not None:
+                cause = final_info["cause"]
+                cause = "success" if cause is None else cause
+                for c_i in ["slow", "collision", "success"]:
+                    logger.store({f"Metrics/{c_i}": c_i in cause})
             if self._cfgs.algo_cfgs.use_cost:
                 logger.store({'Value/cost': value_c})
             logger.store({'Value/reward': value_r})
