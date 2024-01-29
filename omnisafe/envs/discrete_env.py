@@ -27,6 +27,8 @@ from omnisafe.envs.core import CMDP, env_register
 from omnisafe.typing import DEVICE_CPU, Discrete
 
 from omnisafe.envs.highway_cl import CumulantIntersectionEnv
+from omnisafe.envs.grid import GridWorld
+
 
 @env_register
 class DiscreteEnv(CMDP):
@@ -63,6 +65,8 @@ class DiscreteEnv(CMDP):
 
     _support_envs: ClassVar[list[str]] = [
         'CartPole-v1',
+        'intersection',
+        'grid',
         'Taxi-v3',
     ]
 
@@ -127,8 +131,16 @@ class DiscreteEnv(CMDP):
                 "offscreen_rendering": True, "video": False,
                 "default_w": [-1000, 1, 1],
                 "go_straight": False,
-            }
-            self._env = CumulantIntersectionEnv(env_config)
+            } if env_id == 'intersection' else {
+                "n": 10,
+                "default_w": [-1000, 1],
+                "offscreen_rendering": True,
+                "video": False,
+                "grid_type": "semi_static",
+                "obs_type": "grid",
+                "use_step_reward": False}
+
+            self._env = CumulantIntersectionEnv(env_config) if env_id == 'intersection' else GridWorld(env_config)
             self._action_space = self._env.action_space  # type: ignore
             self._observation_space = self._env.observation_space  # type: ignore
         self._metadata = self._env.metadata
@@ -187,7 +199,7 @@ class DiscreteEnv(CMDP):
             )
             if isinstance(self._observation_space, spaces.Discrete):
                 info['final_observation'] = info['final_observation'].unsqueeze(-1)
-        cost = torch.zeros_like(reward)+info.get('cost', 0)
+        cost = torch.zeros_like(reward) + info.get('cost', 0)
         return obs, reward, cost, terminated, truncated, info
 
     def reset(
